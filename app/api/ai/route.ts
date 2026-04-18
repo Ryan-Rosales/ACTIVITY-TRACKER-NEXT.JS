@@ -1,0 +1,340 @@
+import { NextResponse } from "next/server";
+import { Task } from "@/lib/types";
+
+type AttachedTaskContext = Task & {
+  note?: string;
+};
+
+type AiAction = "extract" | "summarize" | "tone" | "advice" | "draft";
+
+interface Body {
+  action?: AiAction;
+  taskTitle?: string;
+  taskDescription?: string;
+  note?: string;
+  messages?: Array<{ role: "user" | "assistant"; content: string }>;
+  context?: { tasks?: Task[] };
+  attachedTaskIds?: string[];
+  attachedTasks?: AttachedTaskContext[];
+}
+
+type ProviderResult = {
+  ok: boolean;
+  text: string;
+  error?: string;
+};
+
+const systemPrompt =
+  "You are a production AI assistant for task notes. You must follow the requested action exactly, use only the provided note context, and avoid generic filler. For extraction, return a checklist of actionable items. For summarization, return one concise summary. For tone changes, keep the meaning but make it professional. For advice, return concrete, specific guidance tied to the note. For drafting, write a clear message the user can send. Keep the output tightly scoped to the note and task context.";
+
+const chatSystemPrompt =
+  "You are ActivityTracker AI Assistant. Help users manage tasks with concise, practical answers. By default, respond in natural conversational text only (no markdown code fences and no JSON wrappers). If and only if the user explicitly asks to create a task, you may include an action object in JSON with keys: reply (string) and action. The action shape is {\"type\":\"CREATE_TASK\",\"task\":{\"title\":string,\"description\"?:string,\"priority\"?:\"low\"|\"medium\"|\"high\",\"category\"?:string}}.";
+
+const buildUserPrompt = (body: Body) => {
+  const action = body.action ?? "summarize";
+  const taskTitle = body.taskTitle ?? "Untitled task";
+  const taskDescription = body.taskDescription?.trim() || "N/A";
+  const note = body.note?.trim() || "N/A";
+
+  switch (action) {
+    case "extract":
+      return [
+        `Task title: ${taskTitle}`,
+        `Task description: ${taskDescription}`,
+        `Note: ${note}`,
+        "Task: Extract action items from this note as a clean checklist only.",
+        "Rules: Use short checklist items, keep them specific, and do not add a summary paragraph.",
+      ].join("\n");
+    case "tone":
+      return [
+        `Task title: ${taskTitle}`,
+        `Task description: ${taskDescription}`,
+        `Note: ${note}`,
+        "Task: Rewrite the note in a more professional tone while preserving meaning.",
+        "Rules: Return the rewritten note only.",
+      ].join("\n");
+    case "advice":
+      return [
+        `Task title: ${taskTitle}`,
+        `Task description: ${taskDescription}`,
+        `Note: ${note}`,
+        "Task: Give practical technical advice and next steps for the blocker described in the note.",
+        "Rules: Be specific, mention tools or checks when helpful, and keep the advice tied to the note.",
+      ].join("\n");
+    case "draft":
+      return [
+        `Task title: ${taskTitle}`,
+        `Task description: ${taskDescription}`,
+        `Note: ${note}`,
+        "Task: Draft a concise email or Slack message based on the note.",
+        "Rules: Write a ready-to-send message with a clear ask and context.",
+      ].join("\n");
+    case "summarize":
+    default:
+      return [
+        `Task title: ${taskTitle}`,
+        `Task description: ${taskDescription}`,
+        `Note: ${note}`,
+        "Task: Summarize this note in one concise sentence.",
+        "Rules: Return only the summary sentence.",
+      ].join("\n");
+  }
+};
+
+const buildChatPrompt = (body: Body) => {
+  const tasks = body.context?.tasks ?? [];
+  const attachedTaskIds = new Set(body.attachedTaskIds ?? []);
+  const attachedSource = body.attachedTasks?.length ? body.attachedTasks : tasks.filter((task) => attachedTaskIds.has(task.id));
+  const attachedTasks: AttachedTaskContext[] = attachedSource
+    .map((task) => {
+      const maybeNote = (task as { note?: unknown }).note;
+      return {
+        ...task,
+        note: typeof maybeNote === "string" ? maybeNote : "",
+      };
+    })
+    .filter((task, index, array) => array.findIndex((candidate) => candidate.id === task.id) === index);
+
+  const taskSummary = tasks
+    .slice(0, 20)
+    .map((task) => `- ${task.title} [${task.status}] priority:${task.priority}${task.dueDate ? ` due:${new Date(task.dueDate).toLocaleDateString()}` : ""}`)
+    .join("\n");
+
+  const attachedTaskDetails = attachedTasks
+    .map((task) => {
+      return [
+        `- Title: ${task.title}`,
+        `  Status: ${task.status}`,
+        `  Priority: ${task.priority}`,
+        `  Category: ${task.category ?? "n/a"}`,
+        `  Due: ${task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "n/a"}`,
+        `  Description: ${task.description?.trim() || "n/a"}`,
+        `  Notes: ${task.note?.trim() || "n/a"}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+
+  const transcript = (body.messages ?? [])
+    .slice(-16)
+    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+    .join("\n\n");
+
+  return [
+    "Workspace task context:",
+    taskSummary || "- No tasks provided",
+    "",
+    "Attached tasks selected by user. Treat these as the primary task context and prioritize them over the general workspace list:",
+    attachedTaskDetails || "- none",
+    "Ignore subtask lists and focus on the attached task notes/description when answering.",
+    "",
+    "Conversation transcript:",
+    transcript || "USER: Hello",
+  ].join("\n");
+};
+
+const stripCodeFence = (value: string) => {
+  const trimmed = value.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenceMatch ? fenceMatch[1].trim() : trimmed;
+};
+
+const parseStructuredReply = (value: string): { reply: string; action?: unknown } | null => {
+  const cleaned = stripCodeFence(value)
+    .replace(/^"+|"+$/g, "")
+    .trim();
+
+  const candidates: string[] = [cleaned];
+  const firstObjectStart = cleaned.indexOf("{");
+  const lastObjectEnd = cleaned.lastIndexOf("}");
+  if (firstObjectStart >= 0 && lastObjectEnd > firstObjectStart) {
+    candidates.push(cleaned.slice(firstObjectStart, lastObjectEnd + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as { reply?: string; action?: unknown };
+      if (typeof parsed.reply === "string" && parsed.reply.trim()) {
+        return { reply: parsed.reply.trim(), action: parsed.action };
+      }
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return null;
+};
+
+const callGemini = async ({
+  apiKey,
+  model,
+  system,
+  prompt,
+}: {
+  apiKey: string;
+  model: string;
+  system: string;
+  prompt: string;
+}): Promise<ProviderResult> => {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: system }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+      },
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  const parts = data?.candidates?.[0]?.content?.parts;
+  const text = Array.isArray(parts)
+    ? parts.map((part: { text?: string }) => part?.text || "").join("\n").trim()
+    : "";
+
+  if (!response.ok) {
+    const message = data?.error?.message || `Gemini request failed with status ${response.status}.`;
+    return { ok: false, text: "", error: message };
+  }
+
+  if (!text) {
+    return { ok: false, text: "", error: "Gemini returned an empty response." };
+  }
+
+  return { ok: true, text };
+};
+
+const callOpenAI = async ({
+  apiKey,
+  model,
+  system,
+  prompt,
+}: {
+  apiKey: string;
+  model: string;
+  system: string;
+  prompt: string;
+}): Promise<ProviderResult> => {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  const text = typeof data?.choices?.[0]?.message?.content === "string"
+    ? data.choices[0].message.content.trim()
+    : "";
+
+  if (!response.ok) {
+    const message = data?.error?.message || `OpenAI request failed with status ${response.status}.`;
+    return { ok: false, text: "", error: message };
+  }
+
+  if (!text) {
+    return { ok: false, text: "", error: "OpenAI returned an empty response." };
+  }
+
+  return { ok: true, text };
+};
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as Body;
+    const messages = body.messages ?? [];
+    const last = body.note?.trim() || messages[messages.length - 1]?.content || "";
+
+    if (!last.trim()) {
+      return NextResponse.json({ reply: "Please share a task or question for me to help with." }, { status: 200 });
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+    const openAiKey = process.env.OPENAI_API_KEY;
+    const openAiModel = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const isChatMode = messages.length > 0 && !body.action;
+
+    if (!geminiKey && !openAiKey) {
+      return NextResponse.json({ error: "No AI provider API key is configured." }, { status: 503 });
+    }
+
+    const prompt = isChatMode ? buildChatPrompt(body) : buildUserPrompt(body);
+    const activeSystemPrompt = isChatMode ? chatSystemPrompt : systemPrompt;
+
+    let providerResult: ProviderResult | null = null;
+
+    if (geminiKey) {
+      providerResult = await callGemini({
+        apiKey: geminiKey,
+        model: geminiModel,
+        system: activeSystemPrompt,
+        prompt,
+      });
+    }
+
+    if ((!providerResult || !providerResult.ok) && openAiKey) {
+      providerResult = await callOpenAI({
+        apiKey: openAiKey,
+        model: openAiModel,
+        system: activeSystemPrompt,
+        prompt,
+      });
+    }
+
+    if (!providerResult || !providerResult.ok || !providerResult.text.trim()) {
+      return NextResponse.json(
+        { error: providerResult?.error || "AI provider returned an empty response." },
+        { status: 502 },
+      );
+    }
+
+    const text = providerResult.text.trim();
+
+    if (isChatMode) {
+      const structured = parseStructuredReply(text);
+      if (structured) {
+        return NextResponse.json(structured);
+      }
+
+      return NextResponse.json({ reply: stripCodeFence(text) });
+    }
+
+    try {
+      const parsed = JSON.parse(text) as { reply?: string };
+      if (typeof parsed.reply === "string" && parsed.reply.trim()) {
+        return NextResponse.json({ reply: parsed.reply.trim() });
+      }
+    } catch {
+      // Non-JSON output is treated as plain reply for notes.
+    }
+
+    return NextResponse.json({ reply: text });
+  } catch {
+    return NextResponse.json(
+      { reply: "I hit an unexpected error. Try again in a moment." },
+      { status: 500 },
+    );
+  }
+}
