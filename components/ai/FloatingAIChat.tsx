@@ -22,6 +22,23 @@ type Conversation = {
   messages: ChatMessageType[];
 };
 
+const upsertHydratedConversation = (
+  state: Conversation[],
+  hydrated: Conversation,
+  targetId?: string,
+) => {
+  let replaced = false;
+  const next = state.map((conversation) => {
+    if (conversation.id === (targetId ?? hydrated.id) || conversation.id === hydrated.id) {
+      replaced = true;
+      return hydrated;
+    }
+    return conversation;
+  });
+
+  return replaced ? next : [hydrated, ...next];
+};
+
 const AI_CONVERSATIONS_UPDATED_EVENT = "ai:conversations-updated";
 const AI_CONVERSATIONS_CACHE_KEY = "activity-ai-conversations-cache-v1";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -256,8 +273,9 @@ export function FloatingAIChat() {
   const messages = activeConversation?.messages ?? initial;
 
   const setActiveMessages = (nextMessages: ChatMessageType[]) => {
+    const conversationIdAtUpdate = activeConversationId;
     const userSeed = nextMessages.find((item) => item.role === "user")?.content.slice(0, 26);
-    const current = conversations.find((conversation) => conversation.id === activeConversationId);
+    const current = conversations.find((conversation) => conversation.id === conversationIdAtUpdate);
     const nextTitle =
       current?.title === "Welcome chat" && userSeed
         ? userSeed
@@ -265,7 +283,7 @@ export function FloatingAIChat() {
 
     setConversations((state) =>
       state.map((conversation) =>
-        conversation.id === activeConversationId
+        conversation.id === conversationIdAtUpdate
           ? {
               ...conversation,
               messages: nextMessages,
@@ -282,7 +300,7 @@ export function FloatingAIChat() {
       messages: serializeMessages(nextMessages),
     };
 
-    const isPersistedConversation = UUID_PATTERN.test(activeConversationId);
+    const isPersistedConversation = UUID_PATTERN.test(conversationIdAtUpdate);
     const isTempConversation = !isPersistedConversation;
 
     void fetch("/api/ai/conversations", {
@@ -293,7 +311,7 @@ export function FloatingAIChat() {
           ? payload
           : {
               ...payload,
-              id: activeConversationId,
+              id: conversationIdAtUpdate,
             },
       ),
     })
@@ -306,20 +324,18 @@ export function FloatingAIChat() {
 
         const hydrated = hydrateConversation(persisted);
         setConversations((state) =>
-          state.map((conversation) =>
-            conversation.id === activeConversationId ? hydrated : conversation,
-          ),
+          upsertHydratedConversation(state, hydrated, conversationIdAtUpdate),
         );
 
-        if (activeConversationId !== hydrated.id) {
+        if (conversationIdAtUpdate !== hydrated.id) {
           setActiveConversationId(hydrated.id);
         }
+
+        emitConversationsUpdated();
       })
       .catch(() => {
         // Keep optimistic local state even if persistence fails.
       });
-
-    emitConversationsUpdated();
   };
 
   const startNewConversation = async () => {
