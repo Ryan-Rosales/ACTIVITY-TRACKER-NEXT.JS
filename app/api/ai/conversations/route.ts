@@ -148,11 +148,19 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as {
+    id?: string;
+    title?: string;
+    pinned?: boolean;
+    messages?: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp: string | Date }>;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+  };
+
   try {
     const email = await getEmail();
     if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json();
     const conversation = await runWithUserContext(email, async (client) => {
       await ensureAiConversationsTable(client);
 
@@ -182,15 +190,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ conversation });
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
-      const body = (await request.json().catch(() => ({}))) as {
-        id?: string;
-        title?: string;
-        pinned?: boolean;
-        messages?: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp: string | Date }>;
-        createdAt?: string | Date;
-        updatedAt?: string | Date;
-      };
-
       const email = await getEmail();
       if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -203,11 +202,19 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as {
+    id?: string;
+    title?: string;
+    pinned?: boolean;
+    messages?: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp: string | Date }>;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+  };
+
   try {
     const email = await getEmail();
     if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json();
     if (!body.id) return NextResponse.json({ error: "Conversation id is required." }, { status: 400 });
 
     const conversation = await runWithUserContext(email, async (client) => {
@@ -232,15 +239,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ conversation });
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
-      const body = (await request.json().catch(() => ({}))) as {
-        id?: string;
-        title?: string;
-        pinned?: boolean;
-        messages?: Array<{ id: string; role: "user" | "assistant"; content: string; timestamp: string | Date }>;
-        createdAt?: string | Date;
-        updatedAt?: string | Date;
-      };
-
       if (!body.id) {
         return NextResponse.json({ error: "Conversation id is required." }, { status: 400 });
       }
@@ -257,11 +255,12 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as { id?: string };
+
   try {
     const email = await getEmail();
     if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json();
     if (!body.id) return NextResponse.json({ error: "Conversation id is required." }, { status: 400 });
 
     await runWithUserContext(email, async (client) => {
@@ -272,7 +271,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
-      const body = (await request.json().catch(() => ({}))) as { id?: string };
       if (!body.id) {
         return NextResponse.json({ error: "Conversation id is required." }, { status: 400 });
       }
