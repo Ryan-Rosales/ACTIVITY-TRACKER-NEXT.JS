@@ -114,10 +114,10 @@ export function LoginCard() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full rounded-[1.7rem] border border-white/20 bg-[linear-gradient(170deg,rgba(255,255,255,0.9),rgba(248,250,252,0.76))] p-6 shadow-[0_24px_64px_rgba(15,23,42,0.16)] backdrop-blur-xl dark:bg-[linear-gradient(170deg,rgba(15,23,42,0.86),rgba(2,6,23,0.7))] sm:p-7"
+      className="auth-card w-full rounded-[1.7rem] p-6 sm:p-7"
     >
       <div className="mb-6 space-y-3">
-        <div className="inline-flex items-center rounded-full border border-white/25 bg-white/60 px-2 py-1 dark:bg-white/10">
+        <div className="auth-segment inline-flex items-center rounded-full px-2 py-1">
           <button
             type="button"
             onClick={() => setMode("signin")}
@@ -172,11 +172,11 @@ export function LoginCard() {
               className="block"
             >
               <span className="mb-1 block text-xs text-[var(--text-subtle)]">Full name</span>
-              <div className="rounded-xl border border-slate-300/60 bg-white/75 transition focus-within:border-[rgb(var(--accent-rgb)/0.85)] dark:border-white/20 dark:bg-black/20">
+              <div className="auth-input-shell rounded-xl transition focus-within:border-[rgb(var(--accent-rgb)/0.85)]">
                 <input
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
-                  className="w-full rounded-xl bg-transparent px-3 py-2.5 text-[var(--text-strong)] outline-none"
+                  className="auth-input w-full rounded-xl bg-transparent px-3 py-2.5 outline-none"
                   placeholder="Ryan Smith"
                   type="text"
                   required
@@ -188,11 +188,11 @@ export function LoginCard() {
 
         <label className="block">
           <span className="mb-1 block text-xs text-[var(--text-subtle)]">Email</span>
-          <div className="rounded-xl border border-slate-300/60 bg-white/75 transition focus-within:border-[rgb(var(--accent-rgb)/0.85)] dark:border-white/20 dark:bg-black/20">
+          <div className="auth-input-shell rounded-xl transition focus-within:border-[rgb(var(--accent-rgb)/0.85)]">
             <input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-xl bg-transparent px-3 py-2.5 text-[var(--text-strong)] outline-none"
+              className="auth-input w-full rounded-xl bg-transparent px-3 py-2.5 outline-none"
               placeholder="you@company.com"
               type="email"
               required
@@ -202,11 +202,11 @@ export function LoginCard() {
 
         <label className="block">
           <span className="mb-1 block text-xs text-[var(--text-subtle)]">Password</span>
-          <div className="rounded-xl border border-slate-300/60 bg-white/75 transition focus-within:border-[rgb(var(--accent-rgb)/0.85)] dark:border-white/20 dark:bg-black/20">
+          <div className="auth-input-shell rounded-xl transition focus-within:border-[rgb(var(--accent-rgb)/0.85)]">
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-xl bg-transparent px-3 py-2.5 text-[var(--text-strong)] outline-none"
+              className="auth-input w-full rounded-xl bg-transparent px-3 py-2.5 outline-none"
               placeholder="••••••••"
               type="password"
               required
@@ -225,11 +225,11 @@ export function LoginCard() {
               className="block"
             >
               <span className="mb-1 block text-xs text-[var(--text-subtle)]">Confirm password</span>
-              <div className="rounded-xl border border-slate-300/60 bg-white/75 transition focus-within:border-[rgb(var(--accent-rgb)/0.85)] dark:border-white/20 dark:bg-black/20">
+              <div className="auth-input-shell rounded-xl transition focus-within:border-[rgb(var(--accent-rgb)/0.85)]">
                 <input
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  className="w-full rounded-xl bg-transparent px-3 py-2.5 text-[var(--text-strong)] outline-none"
+                  className="auth-input w-full rounded-xl bg-transparent px-3 py-2.5 outline-none"
                   placeholder="••••••••"
                   type="password"
                   required

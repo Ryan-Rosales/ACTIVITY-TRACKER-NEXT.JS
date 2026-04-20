@@ -16,29 +16,29 @@ import { useAuthStore } from "@/lib/store/useAuthStore";
 import type { Task } from "@/lib/types";
 import type { TaskNoteAttachment } from "@/lib/types/taskNotes";
 
-const serializeTaskForApi = (task: Task) => ({
-  id: task.id,
-  title: task.title,
-  description: task.description,
-  status: task.status,
-  priority: task.priority,
-  category: task.category,
-  dueDate: task.dueDate instanceof Date ? task.dueDate.toISOString() : task.dueDate,
-  completedAt: task.completedAt instanceof Date ? task.completedAt.toISOString() : task.completedAt,
-  archivedAt: task.archivedAt instanceof Date ? task.archivedAt.toISOString() : task.archivedAt,
-  createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : task.createdAt,
-  updatedAt: task.updatedAt instanceof Date ? task.updatedAt.toISOString() : task.updatedAt,
-  subtasks: task.subtasks,
-});
+const mergeTasksByRecency = (localTasks: Task[], serverTasks: Task[]) => {
+  const merged = new Map<string, Task>();
 
-const serializeAttachmentForApi = (attachment: TaskNoteAttachment) => ({
-  id: attachment.id,
-  name: attachment.name,
-  type: attachment.type,
-  size: attachment.size,
-  uploadedAt: attachment.uploadedAt,
-  storagePath: attachment.storagePath,
-});
+  for (const task of localTasks) {
+    merged.set(task.id, task);
+  }
+
+  for (const task of serverTasks) {
+    const existing = merged.get(task.id);
+    if (!existing) {
+      merged.set(task.id, task);
+      continue;
+    }
+
+    const existingUpdated = new Date(existing.updatedAt).getTime();
+    const incomingUpdated = new Date(task.updatedAt).getTime();
+    merged.set(task.id, incomingUpdated >= existingUpdated ? task : existing);
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+};
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -57,7 +57,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hydrateSession = useAuthStore((state) => state.hydrateSession);
   const [mobileOpen, setMobileOpen] = useState(false);
   const hydratedEmail = useRef<string | null>(null);
-  const migratedEmail = useRef<string | null>(null);
 
   useEffect(() => {
     if (pathname === "/login") return;
@@ -73,10 +72,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!email || hydratedEmail.current === email) return;
 
     hydratedEmail.current = email;
-
-    const localTasks = useTaskStore.getState().tasks;
-    const localNotesByTaskId = useTaskNotesStore.getState().notesByTaskId;
-    const localAttachmentsByTaskId = useTaskNotesStore.getState().attachmentsByTaskId;
 
     void (async () => {
       try {
@@ -102,41 +97,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         if (!response.ok) return;
 
-        const hasServerTasks = Array.isArray(data.tasks) && data.tasks.length > 0;
-        if (!hasServerTasks && localTasks.length && migratedEmail.current !== email) {
-          for (const task of localTasks) {
-            await fetch("/api/tasks", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(serializeTaskForApi(task)),
-            });
-          }
-
-          for (const [taskId, note] of Object.entries(localNotesByTaskId)) {
-            const attachments = localAttachmentsByTaskId[taskId] ?? [];
-            await fetch("/api/task-notes", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                taskId,
-                note,
-                attachments: attachments.map(serializeAttachmentForApi),
-              }),
-            });
-          }
-
-          migratedEmail.current = email;
-
-          const refreshed = await fetch("/api/bootstrap");
-          if (refreshed.ok) {
-            data.tasks = (await refreshed.json())?.tasks ?? data.tasks;
-          }
-        }
-
-        if (data.tasks) setTasks(data.tasks);
-        if (data.notesByTaskId) setNotesByTaskId(data.notesByTaskId);
-        if (data.attachmentsByTaskId) setAttachmentsByTaskId(data.attachmentsByTaskId);
-        if (data.notifications) setNotifications(data.notifications);
+        const serverTasks = data.tasks ?? [];
+        const localTasks = useTaskStore.getState().tasks;
+        setTasks(mergeTasksByRecency(localTasks, serverTasks));
+        setNotesByTaskId(data.notesByTaskId ?? {});
+        setAttachmentsByTaskId(data.attachmentsByTaskId ?? {});
+        setNotifications(data.notifications ?? []);
         if (data.settings) {
           const settings = data.settings;
           setNotificationSettings({

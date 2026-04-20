@@ -24,6 +24,33 @@ const normalizeTask = (task: Task): Task => ({
   completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
 });
 
+const mergeTasks = (currentTasks: Task[], persistedTasks: Task[]) => {
+  if (!currentTasks.length) return persistedTasks.map(normalizeTask);
+  if (!persistedTasks.length) return currentTasks;
+
+  const merged = new Map<string, Task>();
+
+  for (const task of persistedTasks) {
+    merged.set(task.id, normalizeTask(task));
+  }
+
+  for (const task of currentTasks) {
+    const existing = merged.get(task.id);
+    if (!existing) {
+      merged.set(task.id, task);
+      continue;
+    }
+
+    const existingUpdated = new Date(existing.updatedAt).getTime();
+    const incomingUpdated = new Date(task.updatedAt).getTime();
+    merged.set(task.id, incomingUpdated >= existingUpdated ? task : existing);
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+};
+
 export const useTaskStore = create<TaskStore>()(
   persist(
     (set, get) => ({
@@ -172,10 +199,15 @@ export const useTaskStore = create<TaskStore>()(
       merge: (persistedState, currentState) => {
         const state = persistedState as TaskStore | undefined;
         if (!state?.tasks?.length) return currentState;
+
+        if (currentState.tasks.length && !state.tasks.length) {
+          return currentState;
+        }
+
         return {
           ...currentState,
           ...state,
-          tasks: state.tasks.map(normalizeTask),
+          tasks: mergeTasks(currentState.tasks, state.tasks),
         };
       },
     },

@@ -85,9 +85,34 @@ body {
 
 .light .bg-gray-950\/85,
 .light .bg-gray-950\/55,
+.light .bg-slate-950\/85,
+.light .bg-slate-950\/90,
+.light .bg-slate-950\/95,
 .light .bg-slate-950\/92,
 .light .bg-slate-900\/95 {
   background-color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.light .bg-black\/15,
+.light .bg-black\/20 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.light .bg-white\/5,
+.light .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+.light .text-white,
+.light .text-slate-100,
+.light .text-slate-200,
+.light .text-slate-300 {
+  color: var(--text-strong) !important;
+}
+
+.light .placeholder\:text-slate-500::placeholder,
+.light .placeholder\:text-slate-400::placeholder {
+  color: var(--text-subtle) !important;
 }
 
 .light .bg-white\/10 {
@@ -214,6 +239,60 @@ h4,
   border-color: rgba(148, 163, 184, 0.45);
   background: rgba(255, 255, 255, 0.95);
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.login-shell {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 90px rgba(2, 6, 23, 0.22);
+}
+
+.auth-card {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(170deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.7));
+  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.34);
+  backdrop-filter: blur(20px);
+}
+
+.auth-segment {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.auth-input-shell {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(2, 6, 23, 0.2);
+}
+
+.auth-input {
+  color: var(--text-strong);
+}
+
+.auth-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.light .login-shell {
+  border-color: rgba(148, 163, 184, 0.44);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.75));
+  box-shadow: 0 22px 56px rgba(15, 23, 42, 0.12);
+}
+
+.light .auth-card {
+  border-color: rgba(148, 163, 184, 0.5);
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.9));
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+}
+
+.light .auth-segment {
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.light .auth-input-shell {
+  border-color: rgba(148, 163, 184, 0.52);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.04);
 }
 
 ::selection {

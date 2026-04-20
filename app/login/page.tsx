@@ -8,7 +8,7 @@ export default function LoginPage() {
     <main className="relative min-h-screen overflow-hidden p-4 md:p-7">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgb(var(--accent-rgb)/0.22),transparent_44%),radial-gradient(circle_at_88%_14%,rgba(56,189,248,0.16),transparent_40%),linear-gradient(120deg,rgba(255,255,255,0.08),transparent_38%)]" />
 
-      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-7xl overflow-hidden rounded-[2rem] border border-white/20 bg-white/8 backdrop-blur-2xl shadow-[0_30px_90px_rgba(2,6,23,0.22)] lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="login-shell relative z-10 mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-7xl overflow-hidden rounded-[2rem] backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr]">
         <motion.section
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}

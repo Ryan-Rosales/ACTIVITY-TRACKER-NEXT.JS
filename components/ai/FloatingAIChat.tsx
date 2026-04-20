@@ -12,6 +12,7 @@ import { ChatMessage as ChatMessageType, Task } from "@/lib/types";
 import { useTaskStore } from "@/lib/store/useTaskStore";
 import { useTaskNotesStore } from "@/lib/store/useTaskNotesStore";
 import { useNotificationStore } from "@/lib/store/useNotificationStore";
+import { useAuthStore } from "@/lib/store/useAuthStore";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 
 type Conversation = {
@@ -40,8 +41,15 @@ const upsertHydratedConversation = (
 };
 
 const AI_CONVERSATIONS_UPDATED_EVENT = "ai:conversations-updated";
-const AI_CONVERSATIONS_CACHE_KEY = "activity-ai-conversations-cache-v1";
+const AI_CONVERSATIONS_CACHE_KEY_PREFIX = "activity-ai-conversations-cache-v1";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const getConversationsCacheKey = (email?: string | null) => {
+  const normalized = (email ?? "").trim().toLowerCase();
+  return normalized
+    ? `${AI_CONVERSATIONS_CACHE_KEY_PREFIX}:${normalized}`
+    : AI_CONVERSATIONS_CACHE_KEY_PREFIX;
+};
 
 const logConversationApiResponse = async (label: string, response: Response) => {
   if (process.env.NODE_ENV === "production") return;
@@ -98,6 +106,7 @@ export function FloatingAIChat() {
   const notesByTaskId = useTaskNotesStore((state) => state.notesByTaskId);
   const addTask = useTaskStore((state) => state.addTask);
   const pushNotification = useNotificationStore((state) => state.pushNotification);
+  const userEmail = useAuthStore((state) => state.user?.email ?? null);
   const migratedLocalConversationsRef = useRef(false);
 
   const serializeMessages = (items: ChatMessageType[]) =>
@@ -180,10 +189,10 @@ export function FloatingAIChat() {
     );
   };
 
-  const readConversationsCache = () => {
+  const readConversationsCache = (cacheKey: string) => {
     if (typeof window === "undefined") return;
 
-    const raw = window.localStorage.getItem(AI_CONVERSATIONS_CACHE_KEY);
+    const raw = window.localStorage.getItem(cacheKey);
     if (!raw) return;
 
     try {
@@ -214,7 +223,7 @@ export function FloatingAIChat() {
     }
   };
 
-  const writeConversationsCache = (nextConversations: Conversation[], nextActiveId: string) => {
+  const writeConversationsCache = (cacheKey: string, nextConversations: Conversation[], nextActiveId: string) => {
     if (typeof window === "undefined") return;
 
     const serializable = nextConversations.map((conversation) => ({
@@ -227,19 +236,33 @@ export function FloatingAIChat() {
     }));
 
     window.localStorage.setItem(
-      AI_CONVERSATIONS_CACHE_KEY,
+      cacheKey,
       JSON.stringify({ conversations: serializable, activeConversationId: nextActiveId }),
     );
   };
 
   useEffect(() => {
-    readConversationsCache();
-  }, []);
+    const cacheKey = getConversationsCacheKey(userEmail);
+    setConversations([
+      {
+        id: "conversation-initial",
+        title: "Welcome chat",
+        updatedAt: new Date(),
+        pinned: false,
+        messages: initial,
+      },
+    ]);
+    setActiveConversationId("conversation-initial");
+    setCacheHydrated(false);
+    migratedLocalConversationsRef.current = false;
+    readConversationsCache(cacheKey);
+  }, [userEmail]);
 
   useEffect(() => {
     if (!cacheHydrated) return;
-    writeConversationsCache(conversations, activeConversationId);
-  }, [cacheHydrated, conversations, activeConversationId]);
+    const cacheKey = getConversationsCacheKey(userEmail);
+    writeConversationsCache(cacheKey, conversations, activeConversationId);
+  }, [cacheHydrated, conversations, activeConversationId, userEmail]);
 
   useEffect(() => {
     if (!open) return;

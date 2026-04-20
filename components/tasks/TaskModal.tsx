@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Task } from "@/lib/types";
 import { GradientButton } from "@/components/ui/GradientButton";
 import { getDueDateState } from "@/lib/utils/dateHelpers";
+import { useThemeStore } from "@/lib/store/useThemeStore";
 
 type Draft = {
   title: string;
@@ -13,7 +14,6 @@ type Draft = {
   priority: Task["priority"];
   category: string;
   dueDate: string;
-  subtasks: string[];
 };
 
 const defaultDraft: Draft = {
@@ -22,7 +22,6 @@ const defaultDraft: Draft = {
   priority: "medium",
   category: "",
   dueDate: "",
-  subtasks: [],
 };
 
 export function TaskModal({
@@ -35,6 +34,8 @@ export function TaskModal({
   task?: Task | null;
 }) {
   const [draft, setDraft] = useState<Draft>(defaultDraft);
+  const mode = useThemeStore((state) => state.mode);
+  const isLight = mode === "light";
   const dueState = getDueDateState(draft.dueDate ? new Date(draft.dueDate) : undefined);
 
   useEffect(() => {
@@ -54,7 +55,6 @@ export function TaskModal({
         priority: task.priority,
         category: task.category ?? "",
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "",
-        subtasks: task.subtasks?.map((item) => item.title) ?? [],
       });
     } else {
       setDraft(defaultDraft);
@@ -66,31 +66,43 @@ export function TaskModal({
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-xl rounded-2xl border border-white/20 bg-slate-950/85 p-5 backdrop-blur-3xl"
+        className={`task-modal w-full max-w-xl rounded-2xl border p-5 backdrop-blur-3xl ${
+          isLight
+            ? "border-slate-200 bg-slate-50/98 shadow-[0_22px_64px_rgba(15,23,42,0.16)]"
+            : "border-white/20 bg-slate-950/85"
+        }`}
       >
-        <h3 className="mb-4 text-lg font-semibold text-white">{task ? "Edit Task" : "Add New Task"}</h3>
+        <h3 className={`mb-4 text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{task ? "Edit Task" : "Add New Task"}</h3>
 
         <div className="space-y-4">
           {/* Title Field */}
           <div>
-            <label className="mb-2 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Title</label>
+            <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-600" : "text-slate-300"}`}>Title</label>
             <input
               value={draft.title}
               onChange={(event) => setDraft((state) => ({ ...state, title: event.target.value }))}
               placeholder="Enter task title"
-              className="w-full rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+              className={`w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-violet-400 ${
+                isLight
+                  ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                  : "border-white/20 bg-black/20 text-white"
+              }`}
               required
             />
           </div>
 
           {/* Description Field */}
           <div>
-            <label className="mb-2 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Description</label>
+            <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-600" : "text-slate-300"}`}>Description</label>
             <textarea
               value={draft.description}
               onChange={(event) => setDraft((state) => ({ ...state, description: event.target.value }))}
               placeholder="Add task details (optional)"
-              className="h-24 w-full rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+              className={`h-24 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-violet-400 ${
+                isLight
+                  ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                  : "border-white/20 bg-black/20 text-white"
+              }`}
             />
           </div>
 
@@ -98,13 +110,13 @@ export function TaskModal({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {/* Priority Field */}
             <div>
-              <label className="mb-2 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Priority</label>
+              <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-600" : "text-slate-300"}`}>Priority</label>
               <select
                 value={draft.priority}
                 onChange={(event) =>
                   setDraft((state) => ({ ...state, priority: event.target.value as Task["priority"] }))
                 }
-                className="w-full rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white"
+                className={`w-full rounded-xl border px-3 py-2 text-sm ${isLight ? "border-slate-300 bg-white text-slate-900" : "border-white/20 bg-black/20 text-white"}`}
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -114,33 +126,47 @@ export function TaskModal({
 
             {/* Category Field */}
             <div>
-              <label className="mb-2 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Category</label>
+              <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-600" : "text-slate-300"}`}>Category</label>
               <input
                 value={draft.category}
                 onChange={(event) => setDraft((state) => ({ ...state, category: event.target.value }))}
                 placeholder="e.g., Work, Personal"
-                className="w-full rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-violet-400 ${
+                  isLight
+                    ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+                    : "border-white/20 bg-black/20 text-white"
+                }`}
               />
             </div>
 
             {/* Date Field */}
             <div>
-              <label className="mb-2 block text-xs font-semibold text-slate-300 uppercase tracking-wide">Due Date</label>
+              <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isLight ? "text-slate-600" : "text-slate-300"}`}>Due Date</label>
               <input
                 value={draft.dueDate}
                 onChange={(event) => setDraft((state) => ({ ...state, dueDate: event.target.value }))}
                 type="date"
-                className="w-full rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white outline-none"
+                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${
+                  isLight ? "border-slate-300 bg-white text-slate-900" : "border-white/20 bg-black/20 text-white"
+                }`}
               />
               <div
                 className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-                  dueState.status === "overdue"
-                    ? "border-amber-300/40 bg-amber-500/15 text-amber-100"
-                    : dueState.status === "dueToday"
+                  isLight
+                    ? dueState.status === "overdue"
+                      ? "border-red-300 bg-red-50 text-red-700"
+                      : dueState.status === "dueToday"
+                        ? "border-amber-300 bg-amber-50 text-amber-700"
+                        : dueState.status === "dueSoon"
+                          ? "border-cyan-300 bg-cyan-50 text-cyan-700"
+                          : "border-slate-200 bg-white text-slate-600"
+                    : dueState.status === "overdue"
                       ? "border-amber-300/40 bg-amber-500/15 text-amber-100"
-                      : dueState.status === "dueSoon"
-                        ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-100"
-                        : "border-white/15 bg-white/5 text-slate-300"
+                      : dueState.status === "dueToday"
+                        ? "border-amber-300/40 bg-amber-500/15 text-amber-100"
+                        : dueState.status === "dueSoon"
+                          ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-100"
+                          : "border-white/15 bg-white/5 text-slate-300"
                 }`}
               >
                 {dueState.status === "overdue" ? <TriangleAlert className="size-3.5" /> : <CalendarClock className="size-3.5" />}
@@ -149,23 +175,13 @@ export function TaskModal({
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-black/10 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm text-slate-300">Subtasks</p>
-            </div>
-            <div className="space-y-1 text-xs text-slate-300">
-              {draft.subtasks.length
-                ? draft.subtasks.map((subtask) => <p key={subtask}>• {subtask}</p>)
-                : "No subtasks yet"}
-            </div>
-          </div>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white"
+            className={`rounded-xl border px-4 py-2 text-sm ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 text-white"}`}
           >
             Cancel
           </button>
@@ -180,11 +196,6 @@ export function TaskModal({
                 priority: draft.priority,
                 category: draft.category || undefined,
                 dueDate: draft.dueDate ? new Date(draft.dueDate) : undefined,
-                subtasks: draft.subtasks.map((title) => ({
-                  id: crypto.randomUUID(),
-                  title,
-                  completed: false,
-                })),
               });
               onClose();
             }}

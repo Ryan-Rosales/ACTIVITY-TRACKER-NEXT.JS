@@ -4,6 +4,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { User } from "@/lib/types";
 import { useNotificationStore } from "@/lib/store/useNotificationStore";
+import { useTaskStore } from "@/lib/store/useTaskStore";
+import { useTaskNotesStore } from "@/lib/store/useTaskNotesStore";
+import { useSettingsStore } from "@/lib/store/useSettingsStore";
 
 interface AuthState {
   user: User | null;
@@ -37,6 +40,34 @@ const setUserEmailCookie = (email: string | null) => {
   document.cookie = `activity_user_email=${encodeURIComponent(email)}; Path=/; Max-Age=2592000; SameSite=Lax`;
 };
 
+const AI_CONVERSATIONS_CACHE_KEY = "activity-ai-conversations-cache-v1";
+
+const clearClientScopedData = () => {
+  useTaskStore.getState().setTasks([]);
+  useTaskNotesStore.getState().setNotesByTaskId({});
+  useTaskNotesStore.getState().setAttachmentsByTaskId({});
+  useNotificationStore.getState().setNotifications([]);
+  useSettingsStore.getState().hydrate({
+    displayName: undefined,
+    email: undefined,
+    avatar: undefined,
+    twoFactorEnabled: false,
+    overdueAlerts: true,
+    aiReminders: true,
+    weeklySummary: false,
+  });
+
+  if (typeof window !== "undefined") {
+    const keysToRemove = Object.keys(window.localStorage).filter(
+      (key) => key === AI_CONVERSATIONS_CACHE_KEY || key.startsWith(`${AI_CONVERSATIONS_CACHE_KEY}:`),
+    );
+
+    for (const key of keysToRemove) {
+      window.localStorage.removeItem(key);
+    }
+  }
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -67,6 +98,7 @@ export const useAuthStore = create<AuthState>()(
           avatar: typeof userData.avatar === "string" ? userData.avatar : existingAvatar,
         };
 
+        clearClientScopedData();
         setUserEmailCookie(user.email);
         set({ user, isAuthenticated: true });
         useNotificationStore.getState().pushNotification({
@@ -96,6 +128,7 @@ export const useAuthStore = create<AuthState>()(
           : undefined;
 
         if (user) {
+          clearClientScopedData();
           setUserEmailCookie(user.email);
           set({ user, isAuthenticated: true });
           useNotificationStore.getState().pushNotification({
@@ -110,10 +143,7 @@ export const useAuthStore = create<AuthState>()(
         };
       },
       logout: () => {
-        useNotificationStore.getState().pushNotification({
-          type: "update",
-          message: "Signed out successfully.",
-        });
+        clearClientScopedData();
         void fetch("/api/auth/logout", { method: "POST" });
         setUserEmailCookie(null);
         set({ user: null, isAuthenticated: false });
@@ -190,6 +220,7 @@ export const useAuthStore = create<AuthState>()(
           avatar: typeof userData.avatar === "string" ? userData.avatar : existingAvatar,
         };
 
+        clearClientScopedData();
         setUserEmailCookie(user.email);
         set({ user, isAuthenticated: true });
       },

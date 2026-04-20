@@ -110,7 +110,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
                 event.stopPropagation();
                 onRequestConfirmation({ type: "move", taskId: task.id, taskTitle: task.title, to: "pending" });
               }}
-              className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-1 text-[11px] font-medium text-amber-200"
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${isLight ? "border border-amber-300 bg-amber-50 text-amber-700" : "bg-amber-500/20 text-amber-200"}`}
               title="Move back to Pending"
             >
               <ChevronLeft className="size-3.5" />
@@ -124,7 +124,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
                 event.stopPropagation();
                 onRequestConfirmation({ type: "move", taskId: task.id, taskTitle: task.title, to: "ongoing" });
               }}
-              className="inline-flex items-center gap-1 rounded-md bg-blue-500/20 px-2 py-1 text-[11px] font-medium text-blue-200"
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${isLight ? "border border-blue-300 bg-blue-50 text-blue-700" : "bg-blue-500/20 text-blue-200"}`}
               title="Move back to Ongoing"
             >
               <ChevronLeft className="size-3.5" />
@@ -138,7 +138,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
                 event.stopPropagation();
                 onRequestConfirmation({ type: "move", taskId: task.id, taskTitle: task.title, to: "ongoing" });
               }}
-              className="rounded-md bg-blue-500/20 p-1 text-blue-200"
+              className={`rounded-md p-1 ${isLight ? "border border-blue-300 bg-blue-50 text-blue-700" : "bg-blue-500/20 text-blue-200"}`}
               title="Move to Ongoing"
               aria-label="Move to Ongoing"
             >
@@ -152,7 +152,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
                 event.stopPropagation();
                 onRequestConfirmation({ type: "move", taskId: task.id, taskTitle: task.title, to: "completed" });
               }}
-              className="rounded-md bg-emerald-500/20 p-1 text-emerald-200"
+              className={`rounded-md p-1 ${isLight ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "bg-emerald-500/20 text-emerald-200"}`}
               title="Move to Completed"
               aria-label="Move to Completed"
             >
@@ -166,7 +166,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
                 event.stopPropagation();
                 onRequestConfirmation({ type: "archive", taskId: task.id, taskTitle: task.title });
               }}
-              className="rounded-md bg-violet-500/20 p-1 text-violet-200"
+              className={`rounded-md p-1 ${isLight ? "border border-violet-300 bg-violet-50 text-violet-700" : "bg-violet-500/20 text-violet-200"}`}
             >
               <Archive className="size-3.5" />
             </button>
@@ -178,7 +178,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
               event.stopPropagation();
               onEdit(task);
             }}
-            className="rounded-md bg-white/10 p-1 text-slate-200"
+            className={`rounded-md p-1 ${isLight ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "bg-white/10 text-slate-200"}`}
             title="Edit Task"
             aria-label="Edit Task"
           >
@@ -190,7 +190,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
               event.stopPropagation();
               onRequestConfirmation({ type: "delete", taskId: task.id, taskTitle: task.title });
             }}
-            className="rounded-md bg-red-500/20 p-1 text-red-200"
+            className={`rounded-md p-1 ${isLight ? "border border-red-300 bg-red-50 text-red-700 hover:bg-red-100" : "bg-red-500/20 text-red-200"}`}
             title="Delete Task"
             aria-label="Delete Task"
           >

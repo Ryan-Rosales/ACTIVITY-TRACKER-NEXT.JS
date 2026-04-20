@@ -33,6 +33,7 @@ import { motion } from "framer-motion";
 import { Task } from "@/lib/types";
 import { GradientButton } from "@/components/ui/GradientButton";
 import type { TaskNoteAttachment } from "@/lib/types/taskNotes";
+import { useThemeStore } from "@/lib/store/useThemeStore";
 
 type TaskNotesModalProps = {
   task: Task;
@@ -211,6 +212,8 @@ const formatFileSize = (size: number) => {
 };
 
 export function TaskNotesModal({ task, note, attachments: initialAttachments, onClose, onSave }: TaskNotesModalProps) {
+  const mode = useThemeStore((state) => state.mode);
+  const isLight = mode === "light";
   const initialParsed = parseNoteWithAiBlocks(note);
   const [userText, setUserText] = useState(initialParsed.userText);
   const [aiEntries, setAiEntries] = useState<AiConversationEntry[]>(initialParsed.entries);
@@ -700,12 +703,16 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="flex h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/20 bg-slate-950/90 p-4 backdrop-blur-3xl sm:p-5"
+          className={`task-notes-modal flex h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border p-4 backdrop-blur-3xl sm:p-5 ${
+            isLight
+              ? "border-slate-200 bg-slate-50/98 shadow-[0_24px_70px_rgba(15,23,42,0.16)]"
+              : "border-white/20 bg-slate-950/90"
+          }`}
         >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-white">Task Notepad</h3>
-            <p className="mt-1 text-sm text-slate-300">{task.title}</p>
+            <h3 className={`text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>Task Notepad</h3>
+            <p className={`mt-1 text-sm ${isLight ? "text-slate-600" : "text-slate-300"}`}>{task.title}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -714,16 +721,24 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
               disabled={loadingAI}
               title="AI Suggest"
               aria-label="AI Suggest"
-              className="inline-flex size-10 items-center justify-center rounded-full border border-violet-300/40 bg-violet-500/15 text-violet-100 transition hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`inline-flex size-10 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isLight
+                  ? "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                  : "border-violet-300/40 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25"
+              }`}
             >
               <Sparkles className="size-4" />
             </button>
             <button
               type="button"
               onClick={() => setShowAiConversation((state) => !state)}
-              title="Show files panel"
-              aria-label="Show files panel"
-              className="inline-flex size-10 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-500/15 text-cyan-100 transition hover:bg-cyan-500/25"
+              title={showAiConversation ? "Hide files panel" : "Show files panel"}
+              aria-label={showAiConversation ? "Hide files panel" : "Show files panel"}
+              className={`inline-flex size-10 items-center justify-center rounded-full border transition ${
+                isLight
+                  ? "border-cyan-300 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
+                  : "border-cyan-300/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25"
+              }`}
             >
               {showAiConversation ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
@@ -732,14 +747,18 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
               onClick={onClose}
               title="Close notes"
               aria-label="Close notes"
-              className="inline-flex size-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition hover:bg-white/10"
+              className={`inline-flex size-10 items-center justify-center rounded-full border transition ${
+                isLight
+                  ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+              }`}
             >
               <X className="size-4" />
             </button>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2 rounded-xl border border-white/10 bg-black/20 p-2">
+        <div className={`mt-4 flex flex-wrap gap-2 rounded-xl border p-2 ${isLight ? "border-slate-200 bg-white" : "border-white/10 bg-black/20"}`}>
           <input
             ref={fileInputRef}
             type="file"
@@ -756,7 +775,11 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             disabled={isUploadingFiles}
             title="Attach files"
             aria-label="Attach files"
-            className="inline-flex items-center justify-center rounded-lg border border-cyan-300/35 bg-cyan-500/15 p-2 text-cyan-100 disabled:cursor-not-allowed disabled:opacity-55"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 disabled:cursor-not-allowed disabled:opacity-55 ${
+              isLight
+                ? "border-cyan-300 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
+                : "border-cyan-300/35 bg-cyan-500/15 text-cyan-100"
+            }`}
           >
             <Paperclip className="size-4" />
           </button>
@@ -765,7 +788,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             onClick={saveAsDownload}
             title="Save to downloads"
             aria-label="Save to downloads"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <Download className="size-4" />
           </button>
@@ -774,7 +799,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             onClick={shareText}
             title="Share text"
             aria-label="Share text"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <Share2 className="size-4" />
           </button>
@@ -783,7 +810,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             onClick={cutSelection}
             title="Cut"
             aria-label="Cut"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <Scissors className="size-4" />
           </button>
@@ -792,7 +821,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             onClick={copySelection}
             title="Copy"
             aria-label="Copy"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <Copy className="size-4" />
           </button>
@@ -801,7 +832,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             onClick={pasteAtCursor}
             title="Paste"
             aria-label="Paste"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <ClipboardPaste className="size-4" />
           </button>
@@ -811,7 +844,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             disabled={!undoStack.length}
             title="Undo"
             aria-label="Undo"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 disabled:cursor-not-allowed disabled:opacity-40 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <Undo2 className="size-4" />
           </button>
@@ -821,7 +856,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             disabled={!redoStack.length}
             title="Redo"
             aria-label="Redo"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 disabled:cursor-not-allowed disabled:opacity-40 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <Redo2 className="size-4" />
           </button>
@@ -833,7 +870,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             }}
             title="Zoom out"
             aria-label="Zoom out"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <ZoomOut className="size-4" />
           </button>
@@ -845,7 +884,9 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             }}
             title="Zoom in"
             aria-label="Zoom in"
-            className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 p-2 text-white"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/10 text-white"
+            }`}
           >
             <ZoomIn className="size-4" />
           </button>
@@ -857,8 +898,14 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
             }}
             title="Spell check"
             aria-label="Spell check"
-            className={`inline-flex items-center justify-center rounded-lg border p-2 text-white ${
-              spellcheck ? "border-violet-400 bg-violet-500/20" : "border-white/20 bg-white/10"
+            className={`inline-flex items-center justify-center rounded-lg border p-2 ${
+              isLight
+                ? spellcheck
+                  ? "border-violet-300 bg-violet-50 text-violet-700"
+                  : "border-slate-300 bg-white text-slate-700"
+                : spellcheck
+                  ? "border-violet-400 bg-violet-500/20 text-white"
+                  : "border-white/20 bg-white/10 text-white"
             }`}
           >
             <SpellCheck className="size-4" />
@@ -1133,12 +1180,14 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/20 bg-slate-950/95 p-4 backdrop-blur-3xl sm:p-5"
+            className={`task-notes-modal-suggest fixed bottom-4 right-4 z-[270] w-[min(38rem,calc(100vw-2rem))] rounded-2xl border p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] backdrop-blur-3xl ${
+              isLight ? "border-slate-200 bg-slate-50/98" : "border-white/20 bg-slate-950/95"
+            }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="text-lg font-semibold text-white">AI Suggest</h4>
-                <p className="mt-1 text-sm text-slate-300">Search a command and insert an API-generated suggestion.</p>
+                <h4 className={`text-lg font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>AI Suggest</h4>
+                <p className={`mt-1 text-sm ${isLight ? "text-slate-600" : "text-slate-300"}`}>Search a command and insert an API-generated suggestion.</p>
               </div>
               <button
                 type="button"
@@ -1148,25 +1197,29 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
                 }}
                 title="Close AI suggest"
                 aria-label="Close AI suggest"
-                className="inline-flex size-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition hover:bg-white/10"
+                className={`inline-flex size-10 items-center justify-center rounded-full border transition ${
+                  isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+                }`}
               >
                 <X className="size-4" />
               </button>
             </div>
 
             <div className="relative mt-5">
-              <Search className="pointer-events-none absolute left-3 top-3 size-4 text-slate-400" />
+              <Search className={`pointer-events-none absolute left-3 top-3 size-4 ${isLight ? "text-slate-500" : "text-slate-400"}`} />
               <input
                 value={aiQuery}
                 onChange={(event) => setAiQuery(event.target.value)}
                 placeholder="Search AI actions..."
-                className="w-full rounded-2xl border border-white/15 bg-white/5 py-3 pl-10 pr-10 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400"
+                className={`w-full rounded-2xl border py-3 pl-10 pr-10 text-sm outline-none placeholder:text-slate-500 focus:border-violet-400 ${
+                  isLight ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400" : "border-white/15 bg-white/5 text-white"
+                }`}
               />
               {aiQuery ? (
                 <button
                   type="button"
                   onClick={() => setAiQuery("")}
-                  className="absolute right-2 top-2 rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-300 hover:bg-white/10"
+                  className={`absolute right-2 top-2 rounded-lg border p-1.5 ${isLight ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-50" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
                   aria-label="Clear search"
                 >
                   <X className="size-3.5" />
@@ -1202,16 +1255,18 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
                               setAiQuery("");
                               void runAiAction(item);
                             }}
-                            className="flex items-start gap-3 rounded-2xl border border-white/15 bg-white/5 p-4 text-left transition hover:border-violet-400/60 hover:bg-white/10"
+                            className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition hover:border-violet-400/60 ${
+                              isLight ? "border-slate-200 bg-white hover:bg-slate-50" : "border-white/15 bg-white/5 hover:bg-white/10"
+                            }`}
                           >
-                            <div className="rounded-xl border border-white/10 bg-white/10 p-2 text-white">
+                            <div className={`rounded-xl border p-2 ${isLight ? "border-violet-200 bg-violet-50 text-violet-700" : "border-white/10 bg-white/10 text-white"}`}>
                               <Icon className="size-4" />
                             </div>
                             <div className="flex-1">
-                              <p className="font-semibold text-white">{item.label}</p>
-                              <p className="mt-1 text-sm text-slate-300">{item.description}</p>
+                              <p className={`font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{item.label}</p>
+                              <p className={`mt-1 text-sm ${isLight ? "text-slate-600" : "text-slate-300"}`}>{item.description}</p>
                             </div>
-                            <ChevronRight className="mt-1 size-4 text-slate-400" />
+                            <ChevronRight className={`mt-1 size-4 ${isLight ? "text-slate-500" : "text-slate-400"}`} />
                           </button>
                         );
                       })}
