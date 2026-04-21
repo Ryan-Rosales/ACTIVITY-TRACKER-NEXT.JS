@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
+import { cookies } from "next/headers";
 import { Task } from "@/lib/types";
+import { consumeDailyRequest } from "@/lib/server/aiQuota";
 
 type AttachedTaskContext = Task & {
   note?: string;
@@ -24,11 +27,61 @@ type ProviderResult = {
   error?: string;
 };
 
+type ResponsePayload = {
+  reply: string;
+  action?: unknown;
+};
+
+type CachedResponse = {
+  payload: ResponsePayload;
+  expiresAt: number;
+};
+
+const CHAT_HISTORY_LIMIT = 6;
+const MESSAGE_CHAR_LIMIT = 420;
+const TASK_CONTEXT_LIMIT = 8;
+const ATTACHED_TASK_LIMIT = 6;
+const PROMPT_CHAR_LIMIT = 10000;
+const RESPONSE_CACHE_TTL_MS = 90_000;
+
+const globalForAiRoute = globalThis as unknown as {
+  aiResponseCache?: Map<string, CachedResponse>;
+  aiInFlight?: Map<string, Promise<ProviderResult>>;
+};
+
+const aiResponseCache = globalForAiRoute.aiResponseCache ?? new Map<string, CachedResponse>();
+const aiInFlight = globalForAiRoute.aiInFlight ?? new Map<string, Promise<ProviderResult>>();
+
+if (!globalForAiRoute.aiResponseCache) {
+  globalForAiRoute.aiResponseCache = aiResponseCache;
+}
+
+if (!globalForAiRoute.aiInFlight) {
+  globalForAiRoute.aiInFlight = aiInFlight;
+}
+
 const systemPrompt =
   "You are a production AI assistant for task notes. You must follow the requested action exactly, use only the provided note context, and avoid generic filler. For extraction, return a checklist of actionable items. For summarization, return one concise summary. For tone changes, keep the meaning but make it professional. For advice, return concrete, specific guidance tied to the note. For drafting, write a clear message the user can send. Keep the output tightly scoped to the note and task context.";
 
 const chatSystemPrompt =
   "You are ActivityTracker AI Assistant. Help users manage tasks with concise, practical answers. By default, respond in natural conversational text only (no markdown code fences and no JSON wrappers). If and only if the user explicitly asks to create a task, you may include an action object in JSON with keys: reply (string) and action. The action shape is {\"type\":\"CREATE_TASK\",\"task\":{\"title\":string,\"description\"?:string,\"priority\"?:\"low\"|\"medium\"|\"high\",\"category\"?:string}}.";
+
+const truncateText = (value: string, max: number) => {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max)}...`;
+};
+
+const toTokenLimit = (value: string | undefined, fallback: number) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+};
+
+const buildCacheKey = (system: string, prompt: string, mode: string) =>
+  createHash("sha256").update(mode).update("\n").update(system).update("\n").update(prompt).digest("hex");
+
+const getEmail = async () => (await cookies()).get("activity_user_email")?.value?.trim().toLowerCase() ?? "";
 
 const buildUserPrompt = (body: Body) => {
   const action = body.action ?? "summarize";
@@ -96,30 +149,42 @@ const buildChatPrompt = (body: Body) => {
     .filter((task, index, array) => array.findIndex((candidate) => candidate.id === task.id) === index);
 
   const taskSummary = tasks
-    .slice(0, 20)
-    .map((task) => `- ${task.title} [${task.status}] priority:${task.priority}${task.dueDate ? ` due:${new Date(task.dueDate).toLocaleDateString()}` : ""}`)
+    .slice(0, TASK_CONTEXT_LIMIT)
+    .map((task) => {
+      const title = truncateText(task.title, 80);
+      return `- ${title} [${task.status}] priority:${task.priority}${task.dueDate ? ` due:${new Date(task.dueDate).toLocaleDateString()}` : ""}`;
+    })
     .join("\n");
 
   const attachedTaskDetails = attachedTasks
+    .slice(0, ATTACHED_TASK_LIMIT)
     .map((task) => {
       return [
-        `- Title: ${task.title}`,
+        `- Title: ${truncateText(task.title, 100)}`,
         `  Status: ${task.status}`,
         `  Priority: ${task.priority}`,
-        `  Category: ${task.category ?? "n/a"}`,
+        `  Category: ${truncateText(task.category ?? "n/a", 60)}`,
         `  Due: ${task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "n/a"}`,
-        `  Description: ${task.description?.trim() || "n/a"}`,
-        `  Notes: ${task.note?.trim() || "n/a"}`,
+        `  Description: ${truncateText(task.description?.trim() || "n/a", 260)}`,
+        `  Notes: ${truncateText(task.note?.trim() || "n/a", 260)}`,
       ].join("\n");
     })
     .join("\n\n");
 
-  const transcript = (body.messages ?? [])
-    .slice(-16)
-    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+  const allMessages = body.messages ?? [];
+  const recentMessages = allMessages.slice(-CHAT_HISTORY_LIMIT);
+  const olderCount = Math.max(0, allMessages.length - recentMessages.length);
+  const transcript = recentMessages
+    .map((message) => `${message.role.toUpperCase()}: ${truncateText(message.content, MESSAGE_CHAR_LIMIT)}`)
     .join("\n\n");
 
-  return [
+  const olderSummary =
+    olderCount > 0
+      ? `Earlier conversation summary: ${olderCount} prior messages omitted for token control. Keep continuity with recent messages.`
+      : "";
+
+  return truncateText(
+    [
     "Workspace task context:",
     taskSummary || "- No tasks provided",
     "",
@@ -127,9 +192,13 @@ const buildChatPrompt = (body: Body) => {
     attachedTaskDetails || "- none",
     "Ignore subtask lists and focus on the attached task notes/description when answering.",
     "",
+    olderSummary,
+    olderSummary ? "" : "",
     "Conversation transcript:",
     transcript || "USER: Hello",
-  ].join("\n");
+    ].join("\n"),
+    PROMPT_CHAR_LIMIT,
+  );
 };
 
 const stripCodeFence = (value: string) => {
@@ -169,11 +238,13 @@ const callGemini = async ({
   model,
   system,
   prompt,
+  maxOutputTokens,
 }: {
   apiKey: string;
   model: string;
   system: string;
   prompt: string;
+  maxOutputTokens: number;
 }): Promise<ProviderResult> => {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`;
 
@@ -194,6 +265,7 @@ const callGemini = async ({
       ],
       generationConfig: {
         temperature: 0.2,
+        maxOutputTokens,
       },
     }),
   });
@@ -221,11 +293,13 @@ const callOpenAI = async ({
   model,
   system,
   prompt,
+  maxTokens,
 }: {
   apiKey: string;
   model: string;
   system: string;
   prompt: string;
+  maxTokens: number;
 }): Promise<ProviderResult> => {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -236,6 +310,7 @@ const callOpenAI = async ({
     body: JSON.stringify({
       model,
       temperature: 0.2,
+      max_tokens: maxTokens,
       messages: [
         { role: "system", content: system },
         { role: "user", content: prompt },
@@ -271,10 +346,15 @@ export async function POST(request: Request) {
     }
 
     const geminiKey = process.env.GEMINI_API_KEY;
-    const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+    const geminiChatModel = process.env.GEMINI_CHAT_MODEL || "gemini-2.5-flash-lite";
+    const geminiActionModel = process.env.GEMINI_ACTION_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const openAiKey = process.env.OPENAI_API_KEY;
-    const openAiModel = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const openAiChatModel = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
+    const openAiActionModel = process.env.OPENAI_ACTION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini";
     const isChatMode = messages.length > 0 && !body.action;
+    const maxOutputTokens = isChatMode
+      ? toTokenLimit(process.env.AI_CHAT_MAX_OUTPUT_TOKENS, 320)
+      : toTokenLimit(process.env.AI_NOTE_MAX_OUTPUT_TOKENS, 420);
 
     if (!geminiKey && !openAiKey) {
       return NextResponse.json({ error: "No AI provider API key is configured." }, { status: 503 });
@@ -282,25 +362,63 @@ export async function POST(request: Request) {
 
     const prompt = isChatMode ? buildChatPrompt(body) : buildUserPrompt(body);
     const activeSystemPrompt = isChatMode ? chatSystemPrompt : systemPrompt;
+    const mode = isChatMode ? "chat" : `action:${body.action ?? "summarize"}`;
+    const cacheKey = buildCacheKey(activeSystemPrompt, prompt, mode);
+
+    const cached = aiResponseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return NextResponse.json(cached.payload);
+    }
+
+    const email = await getEmail();
+    if (email) {
+      const usageCheck = await consumeDailyRequest(email);
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          {
+            reply: `Daily AI limit reached for this account (${usageCheck.snapshot.dailyBudget} requests). Try again after reset or increase your limit in Settings.`,
+            usage: usageCheck.snapshot,
+          },
+          { status: 429 },
+        );
+      }
+    }
 
     let providerResult: ProviderResult | null = null;
 
-    if (geminiKey) {
-      providerResult = await callGemini({
-        apiKey: geminiKey,
-        model: geminiModel,
-        system: activeSystemPrompt,
-        prompt,
-      });
-    }
+    const inFlightResult = aiInFlight.get(cacheKey);
+    if (inFlightResult) {
+      providerResult = await inFlightResult;
+    } else {
+      const runProvider = (async () => {
+        let result: ProviderResult | null = null;
 
-    if ((!providerResult || !providerResult.ok) && openAiKey) {
-      providerResult = await callOpenAI({
-        apiKey: openAiKey,
-        model: openAiModel,
-        system: activeSystemPrompt,
-        prompt,
-      });
+        if (geminiKey) {
+          result = await callGemini({
+            apiKey: geminiKey,
+            model: isChatMode ? geminiChatModel : geminiActionModel,
+            system: activeSystemPrompt,
+            prompt,
+            maxOutputTokens,
+          });
+        }
+
+        if ((!result || !result.ok) && openAiKey) {
+          result = await callOpenAI({
+            apiKey: openAiKey,
+            model: isChatMode ? openAiChatModel : openAiActionModel,
+            system: activeSystemPrompt,
+            prompt,
+            maxTokens: maxOutputTokens,
+          });
+        }
+
+        return result ?? { ok: false, text: "", error: "No AI provider API key is configured." };
+      })();
+
+      aiInFlight.set(cacheKey, runProvider);
+      providerResult = await runProvider;
+      aiInFlight.delete(cacheKey);
     }
 
     if (!providerResult || !providerResult.ok || !providerResult.text.trim()) {
@@ -315,22 +433,42 @@ export async function POST(request: Request) {
     if (isChatMode) {
       const structured = parseStructuredReply(text);
       if (structured) {
-        return NextResponse.json(structured);
+        const payload: ResponsePayload = { reply: structured.reply, action: structured.action };
+        aiResponseCache.set(cacheKey, {
+          payload,
+          expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+        });
+        return NextResponse.json(payload);
       }
 
-      return NextResponse.json({ reply: stripCodeFence(text) });
+      const payload: ResponsePayload = { reply: stripCodeFence(text) };
+      aiResponseCache.set(cacheKey, {
+        payload,
+        expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+      });
+      return NextResponse.json(payload);
     }
 
     try {
       const parsed = JSON.parse(text) as { reply?: string };
       if (typeof parsed.reply === "string" && parsed.reply.trim()) {
-        return NextResponse.json({ reply: parsed.reply.trim() });
+        const payload: ResponsePayload = { reply: parsed.reply.trim() };
+        aiResponseCache.set(cacheKey, {
+          payload,
+          expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+        });
+        return NextResponse.json(payload);
       }
     } catch {
       // Non-JSON output is treated as plain reply for notes.
     }
 
-    return NextResponse.json({ reply: text });
+    const payload: ResponsePayload = { reply: text };
+    aiResponseCache.set(cacheKey, {
+      payload,
+      expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+    });
+    return NextResponse.json(payload);
   } catch {
     return NextResponse.json(
       { reply: "I hit an unexpected error. Try again in a moment." },

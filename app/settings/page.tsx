@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Lock, Palette } from "lucide-react";
 import { motion } from "framer-motion";
 import { SettingsSection } from "@/components/settings/SettingsSection";
@@ -32,6 +32,17 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [securityMessage, setSecurityMessage] = useState<string | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [dailyBudgetInput, setDailyBudgetInput] = useState(40);
+  const [usage, setUsage] = useState<{
+    usedRequests: number;
+    dailyBudget: number;
+    remainingRequests: number;
+    resetAt: string;
+    source: "postgres" | "supabase" | "memory";
+  } | null>(null);
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [usageMessage, setUsageMessage] = useState<string | null>(null);
+  const [savingBudget, setSavingBudget] = useState(false);
 
   const updateNotificationPreference = (
     key: "overdueAlerts" | "aiReminders" | "weeklySummary",
@@ -64,6 +75,72 @@ export default function SettingsPage() {
       pushNotification({ type: "update", message: "Security settings updated: password changed." });
     }, 550);
   };
+
+  const loadUsage = useCallback(async () => {
+    try {
+      const response = await fetch("/api/ai/usage", { cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as
+        | { usage?: { usedRequests: number; dailyBudget: number; remainingRequests: number; resetAt: string; source: "postgres" | "supabase" | "memory" } }
+        | null;
+
+      if (!response.ok || !data?.usage) {
+        setUsageMessage("Could not load live AI usage right now.");
+        return;
+      }
+
+      setUsage(data.usage);
+      setDailyBudgetInput(data.usage.dailyBudget);
+      setUsageMessage(null);
+    } catch {
+      setUsageMessage("Could not load live AI usage right now.");
+    } finally {
+      setUsageLoading(false);
+    }
+  }, []);
+
+  const saveDailyBudget = async () => {
+    setSavingBudget(true);
+    setUsageMessage(null);
+
+    try {
+      const response = await fetch("/api/ai/usage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dailyBudget: dailyBudgetInput }),
+      });
+
+      const data = (await response.json().catch(() => null)) as
+        | { usage?: { usedRequests: number; dailyBudget: number; remainingRequests: number; resetAt: string; source: "postgres" | "supabase" | "memory" } }
+        | { error?: string }
+        | null;
+
+      if (!response.ok || !data || !("usage" in data) || !data.usage) {
+        const message = data && "error" in data && typeof data.error === "string"
+          ? data.error
+          : "Could not save AI daily budget.";
+        setUsageMessage(message);
+        return;
+      }
+
+      setUsage(data.usage);
+      setDailyBudgetInput(data.usage.dailyBudget);
+      setUsageMessage("AI daily budget updated.");
+    } catch {
+      setUsageMessage("Could not save AI daily budget.");
+    } finally {
+      setSavingBudget(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsage();
+    const intervalId = window.setInterval(() => {
+      void loadUsage();
+    }, 12000);
+    return () => window.clearInterval(intervalId);
+  }, [loadUsage]);
+
+  const usagePercent = usage ? Math.min(100, Math.round((usage.usedRequests / Math.max(1, usage.dailyBudget)) * 100)) : 0;
 
   return (
     <motion.div
@@ -154,6 +231,55 @@ export default function SettingsPage() {
               onChange={(checked) => updateNotificationPreference("weeklySummary", checked)}
             />
           </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="AI Quota" description="Set per-account daily AI request budget and monitor live usage.">
+        <div className="settings-row space-y-3 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-white">Daily request budget</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={dailyBudgetInput}
+                onChange={(event) => setDailyBudgetInput(Number(event.target.value || 1))}
+                className="settings-input accent-focus w-24 px-2 py-1.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={saveDailyBudget}
+                disabled={savingBudget}
+                className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingBudget ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs text-slate-300">
+              {usageLoading
+                ? "Loading live usage..."
+                : usage
+                  ? `${usage.usedRequests} used / ${usage.dailyBudget} total (${usage.remainingRequests} remaining)`
+                  : "Live usage unavailable"}
+            </p>
+            <div className="h-2 rounded-full bg-white/10">
+              <div
+                className="h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 transition-all"
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {usage
+                ? `Resets at ${new Date(usage.resetAt).toLocaleString()} • tracked per account`
+                : "Usage meter updates every few seconds while this page is open."}
+            </p>
+          </div>
+
+          {usageMessage ? <p className="text-xs text-slate-300">{usageMessage}</p> : null}
         </div>
       </SettingsSection>
 
