@@ -73,13 +73,14 @@ export function Sidebar({
         <div className="mb-4 flex items-center gap-2 px-2 py-3">
           <div
             className={cn(
-              "relative h-10 w-10 overflow-hidden rounded-2xl border p-1.5",
+              "relative h-10 w-10 overflow-hidden border",
+              collapsed && !mobile ? "rounded-lg p-1" : "rounded-2xl p-1.5",
               isLight
                 ? "border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.16)]"
                 : "border-white/15 bg-slate-950/80 shadow-[0_8px_24px_rgba(59,130,246,0.28)]",
             )}
           >
-            <Image src="/images/logo.png" alt="Activity Tracker logo" fill className="object-contain p-0.5" priority />
+            <Image src="/images/logo.png" alt="Activity Tracker logo" fill sizes="40px" className="object-contain p-0.5" priority />
           </div>
           {!collapsed ? (
             <div className="min-w-0">

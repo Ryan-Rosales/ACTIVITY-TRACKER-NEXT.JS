@@ -12,6 +12,7 @@ import { ChatMessage as ChatMessageType, Task } from "@/lib/types";
 import { useTaskStore } from "@/lib/store/useTaskStore";
 import { useTaskNotesStore } from "@/lib/store/useTaskNotesStore";
 import { useNotificationStore } from "@/lib/store/useNotificationStore";
+import { useThemeStore } from "@/lib/store/useThemeStore";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 
 type Conversation = {
@@ -80,6 +81,8 @@ export function ChatWindow() {
   const addTask = useTaskStore((state) => state.addTask);
   const pushNotification = useNotificationStore((state) => state.pushNotification);
   const { askAI, loading } = useAI();
+  const mode = useThemeStore((state) => state.mode);
+  const isLight = mode === "light";
 
   const serializeMessages = (items: ChatMessageType[]) =>
     items.map((message) => ({
@@ -490,8 +493,8 @@ export function ChatWindow() {
               <Bot className="size-4 text-white" />
             </div>
             <div>
-              <h2 className="text-white">AI Assistant</h2>
-              <p className="text-xs text-slate-400">Live task copilot</p>
+              <h2 className={isLight ? "text-slate-900" : "text-white"}>AI Assistant</h2>
+              <p className={`text-xs ${isLight ? "text-slate-600" : "text-slate-400"}`}>Live task copilot</p>
             </div>
           </div>
 
@@ -505,7 +508,10 @@ export function ChatWindow() {
             "Productivity tips",
             "Summarize progress",
           ].map((chip) => (
-            <span key={chip} className="rounded-full bg-violet-500/20 px-2 py-1 text-violet-200">
+            <span
+              key={chip}
+              className={`rounded-full border px-2 py-1 ${isLight ? "border-violet-200 bg-violet-50 text-violet-700" : "border-violet-300/35 bg-violet-500/20 text-violet-200"}`}
+            >
               {chip}
             </span>
           ))}
@@ -534,8 +540,12 @@ export function ChatWindow() {
                   key={conversation.id}
                   className={`relative rounded-lg border px-2 py-1.5 text-xs transition ${
                     conversation.id === activeConversationId
-                      ? "accent-soft-bg accent-soft-border text-white"
-                      : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      ? isLight
+                        ? "border-violet-300 bg-violet-100/80 text-slate-900"
+                        : "accent-soft-bg accent-soft-border text-white"
+                      : isLight
+                        ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
                   }`}
                 >
                   <div className="flex items-start gap-1.5">
@@ -551,7 +561,7 @@ export function ChatWindow() {
                         <span className="truncate">{conversation.title}</span>
                         {conversation.pinned ? <Pin className="size-3 shrink-0 text-amber-300" /> : null}
                       </p>
-                      <p className="mt-0.5 text-[10px] text-slate-400">
+                      <p className={`mt-0.5 text-[10px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
                         {mounted ? conversation.updatedAt.toLocaleString() : "..."}
                       </p>
                     </button>
@@ -563,7 +573,7 @@ export function ChatWindow() {
                           state === conversation.id ? null : conversation.id,
                         )
                       }
-                      className="rounded-md border border-white/15 bg-white/5 p-1 text-slate-200 transition hover:bg-white/10"
+                      className={`rounded-md border p-1 transition ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"}`}
                       aria-label="Conversation options"
                       title="Conversation options"
                     >
@@ -572,18 +582,18 @@ export function ChatWindow() {
                   </div>
 
                   {openConversationMenuId === conversation.id ? (
-                    <div className="absolute right-2 top-8 z-20 w-40 rounded-lg border border-white/15 bg-slate-900/95 p-1.5 shadow-xl">
+                    <div className={`absolute right-2 top-8 z-20 w-40 rounded-lg border p-1.5 shadow-xl ${isLight ? "border-slate-200 bg-white" : "border-white/15 bg-slate-900/95"}`}>
                       <button
                         type="button"
                         onClick={() => editConversationName(conversation.id)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-slate-100 transition hover:bg-white/10"
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-slate-100 hover:bg-white/10"}`}
                       >
                         <Menu className="size-3.5" /> Edit name
                       </button>
                       <button
                         type="button"
                         onClick={() => togglePinConversation(conversation.id)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-slate-100 transition hover:bg-white/10"
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-slate-100 hover:bg-white/10"}`}
                       >
                         <Pin className="size-3.5" /> {conversation.pinned ? "Unpin conversation" : "Pin conversation"}
                       </button>
@@ -593,7 +603,7 @@ export function ChatWindow() {
                           setPendingDeleteConversation(conversation);
                           setOpenConversationMenuId(null);
                         }}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-red-300 transition hover:bg-red-500/20"
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${isLight ? "text-red-700 hover:bg-red-50" : "text-red-300 hover:bg-red-500/20"}`}
                       >
                         <Trash2 className="size-3.5" /> Delete conversation
                       </button>

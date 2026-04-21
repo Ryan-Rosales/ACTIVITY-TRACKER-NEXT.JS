@@ -42,6 +42,14 @@ const setUserEmailCookie = (email: string | null) => {
 
 const AI_CONVERSATIONS_CACHE_KEY = "activity-ai-conversations-cache-v1";
 
+const normalizeEmail = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
+
+const shouldResetScopedData = (currentEmail: string | null | undefined, nextEmail: string | null | undefined) => {
+  const current = normalizeEmail(currentEmail);
+  const next = normalizeEmail(nextEmail);
+  return !!next && current !== next;
+};
+
 const clearClientScopedData = () => {
   useTaskStore.getState().setTasks([]);
   useTaskNotesStore.getState().setNotesByTaskId({});
@@ -98,7 +106,9 @@ export const useAuthStore = create<AuthState>()(
           avatar: typeof userData.avatar === "string" ? userData.avatar : existingAvatar,
         };
 
-        clearClientScopedData();
+        if (shouldResetScopedData(get().user?.email, user.email)) {
+          clearClientScopedData();
+        }
         setUserEmailCookie(user.email);
         set({ user, isAuthenticated: true });
         useNotificationStore.getState().pushNotification({
@@ -128,7 +138,9 @@ export const useAuthStore = create<AuthState>()(
           : undefined;
 
         if (user) {
-          clearClientScopedData();
+          if (shouldResetScopedData(get().user?.email, user.email)) {
+            clearClientScopedData();
+          }
           setUserEmailCookie(user.email);
           set({ user, isAuthenticated: true });
           useNotificationStore.getState().pushNotification({
@@ -220,7 +232,9 @@ export const useAuthStore = create<AuthState>()(
           avatar: typeof userData.avatar === "string" ? userData.avatar : existingAvatar,
         };
 
-        clearClientScopedData();
+        if (shouldResetScopedData(get().user?.email, user.email)) {
+          clearClientScopedData();
+        }
         setUserEmailCookie(user.email);
         set({ user, isAuthenticated: true });
       },

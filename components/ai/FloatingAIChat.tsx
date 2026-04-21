@@ -13,6 +13,7 @@ import { useTaskStore } from "@/lib/store/useTaskStore";
 import { useTaskNotesStore } from "@/lib/store/useTaskNotesStore";
 import { useNotificationStore } from "@/lib/store/useNotificationStore";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { useThemeStore } from "@/lib/store/useThemeStore";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 
 type Conversation = {
@@ -107,6 +108,8 @@ export function FloatingAIChat() {
   const addTask = useTaskStore((state) => state.addTask);
   const pushNotification = useNotificationStore((state) => state.pushNotification);
   const userEmail = useAuthStore((state) => state.user?.email ?? null);
+  const mode = useThemeStore((state) => state.mode);
+  const isLight = mode === "light";
   const migratedLocalConversationsRef = useRef(false);
 
   const serializeMessages = (items: ChatMessageType[]) =>
@@ -623,13 +626,17 @@ export function FloatingAIChat() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 20 }}
               transition={{ type: "spring", stiffness: 340, damping: 28 }}
-              className={`fixed z-[340] flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-slate-950/92 shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition-[width,height,right,bottom] duration-300 ${
+              className={`fixed z-[340] flex flex-col overflow-hidden rounded-2xl border transition-[width,height,right,bottom] duration-300 ${
+                isLight
+                  ? "border-slate-200 bg-slate-50/98 shadow-[0_24px_70px_rgba(15,23,42,0.16)]"
+                  : "border-white/20 bg-slate-950/92 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+              } ${
                 expanded
                   ? "bottom-4 right-4 h-[min(86vh,44rem)] w-[min(56rem,calc(100vw-2rem))]"
                   : "bottom-8 right-4 h-[min(72vh,34rem)] w-[min(26rem,calc(100vw-2rem))] md:bottom-10 md:right-8"
               }`}
             >
-              <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <header className={`flex items-center justify-between border-b px-4 py-3 ${isLight ? "border-slate-200" : "border-white/10"}`}>
                 <div className="flex items-center gap-2">
                   <div
                     className="grid size-8 place-items-center rounded-full text-white"
@@ -638,15 +645,15 @@ export function FloatingAIChat() {
                     <Sparkles className="size-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">AI Assistant</p>
-                    <p className="text-[11px] text-slate-400">Live task copilot</p>
+                    <p className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>AI Assistant</p>
+                    <p className={`text-[11px] ${isLight ? "text-slate-600" : "text-slate-400"}`}>Live task copilot</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setShowConversations((state) => !state)}
-                    className="rounded-lg border border-white/15 bg-white/5 p-1.5 text-slate-200 transition hover:bg-white/10"
+                    className={`rounded-lg border p-1.5 transition ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"}`}
                     title="Recent conversations"
                     aria-label="Recent conversations"
                   >
@@ -655,7 +662,7 @@ export function FloatingAIChat() {
                   <button
                     type="button"
                     onClick={() => setExpanded((state) => !state)}
-                    className="rounded-lg border border-white/15 bg-white/5 p-1.5 text-slate-200 transition hover:bg-white/10"
+                    className={`rounded-lg border p-1.5 transition ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"}`}
                     title={expanded ? "Restore size" : "Expand"}
                     aria-label={expanded ? "Restore size" : "Expand"}
                   >
@@ -664,7 +671,7 @@ export function FloatingAIChat() {
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-lg border border-white/15 bg-white/5 p-1.5 text-slate-200 transition hover:bg-white/10"
+                    className={`rounded-lg border p-1.5 transition ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"}`}
                   >
                     <X className="size-4" />
                   </button>
@@ -678,16 +685,16 @@ export function FloatingAIChat() {
                       initial={{ width: 0, opacity: 0 }}
                       animate={{ width: 240, opacity: 1 }}
                       exit={{ width: 0, opacity: 0 }}
-                      className="overflow-hidden border-r border-white/10 bg-black/20"
+                      className={`overflow-hidden border-r ${isLight ? "border-slate-200 bg-slate-100/75" : "border-white/10 bg-black/20"}`}
                     >
                       <div className="flex items-center justify-between px-3 py-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Recent</p>
+                        <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${isLight ? "text-slate-600" : "text-slate-400"}`}>Recent</p>
                       </div>
                       <div className="px-2 pb-2">
                         <button
                           type="button"
                           onClick={() => setPendingNewConversation(true)}
-                          className="mb-2 flex w-full items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-2 py-1.5 text-left text-xs text-slate-100 transition hover:bg-white/15"
+                          className={`mb-2 flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs transition ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-white/10 text-slate-100 hover:bg-white/15"}`}
                         >
                           <Plus className="size-3.5" /> New chat conversation
                         </button>
@@ -698,8 +705,12 @@ export function FloatingAIChat() {
                               key={conversation.id}
                               className={`relative rounded-lg border px-2 py-1.5 text-xs transition ${
                                 conversation.id === activeConversationId
-                                  ? "accent-soft-bg accent-soft-border text-white"
-                                  : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                                  ? isLight
+                                    ? "border-violet-300 bg-violet-100/80 text-slate-900"
+                                    : "accent-soft-bg accent-soft-border text-white"
+                                  : isLight
+                                    ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                    : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
                               }`}
                             >
                               <div className="flex items-start gap-1.5">
@@ -715,7 +726,7 @@ export function FloatingAIChat() {
                                     <span className="truncate">{conversation.title}</span>
                                     {conversation.pinned ? <Pin className="size-3 shrink-0 text-amber-300" /> : null}
                                   </p>
-                                  <p className="mt-0.5 text-[10px] text-slate-400">
+                                  <p className={`mt-0.5 text-[10px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
                                     {conversation.updatedAt.toLocaleString()}
                                   </p>
                                 </button>
@@ -727,7 +738,7 @@ export function FloatingAIChat() {
                                       state === conversation.id ? null : conversation.id,
                                     )
                                   }
-                                  className="rounded-md border border-white/15 bg-white/5 p-1 text-slate-200 transition hover:bg-white/10"
+                                  className={`rounded-md border p-1 transition ${isLight ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50" : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"}`}
                                   aria-label="Conversation options"
                                   title="Conversation options"
                                 >
@@ -736,18 +747,18 @@ export function FloatingAIChat() {
                               </div>
 
                               {openConversationMenuId === conversation.id ? (
-                                <div className="absolute right-2 top-8 z-20 w-40 rounded-lg border border-white/15 bg-slate-900/95 p-1.5 shadow-xl">
+                                <div className={`absolute right-2 top-8 z-20 w-40 rounded-lg border p-1.5 shadow-xl ${isLight ? "border-slate-200 bg-white" : "border-white/15 bg-slate-900/95"}`}>
                                   <button
                                     type="button"
                                     onClick={() => editConversationName(conversation.id)}
-                                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-slate-100 transition hover:bg-white/10"
+                                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-slate-100 hover:bg-white/10"}`}
                                   >
                                     <Menu className="size-3.5" /> Edit name
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => togglePinConversation(conversation.id)}
-                                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-slate-100 transition hover:bg-white/10"
+                                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${isLight ? "text-slate-700 hover:bg-slate-100" : "text-slate-100 hover:bg-white/10"}`}
                                   >
                                     <Pin className="size-3.5" /> {conversation.pinned ? "Unpin conversation" : "Pin conversation"}
                                   </button>
@@ -757,7 +768,7 @@ export function FloatingAIChat() {
                                       setPendingDeleteConversation(conversation);
                                       setOpenConversationMenuId(null);
                                     }}
-                                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-red-300 transition hover:bg-red-500/20"
+                                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${isLight ? "text-red-700 hover:bg-red-50" : "text-red-300 hover:bg-red-500/20"}`}
                                   >
                                     <Trash2 className="size-3.5" /> Delete conversation
                                   </button>

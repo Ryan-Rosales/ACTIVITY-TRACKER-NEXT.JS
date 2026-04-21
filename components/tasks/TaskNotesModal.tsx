@@ -1180,7 +1180,7 @@ export function TaskNotesModal({ task, note, attachments: initialAttachments, on
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`task-notes-modal-suggest fixed bottom-4 right-4 z-[270] w-[min(38rem,calc(100vw-2rem))] rounded-2xl border p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] backdrop-blur-3xl ${
+            className={`task-notes-modal-suggest z-[270] flex w-full max-w-3xl max-h-[88vh] flex-col overflow-y-auto rounded-2xl border p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] backdrop-blur-3xl ${
               isLight ? "border-slate-200 bg-slate-50/98" : "border-white/20 bg-slate-950/95"
             }`}
           >

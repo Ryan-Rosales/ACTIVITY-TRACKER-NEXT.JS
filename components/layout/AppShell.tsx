@@ -68,6 +68,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [syncTaskNotifications, tasks]);
 
   useEffect(() => {
+    if (!user?.email) {
+      hydratedEmail.current = null;
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
     const email = user?.email;
     if (!email || hydratedEmail.current === email) return;
 

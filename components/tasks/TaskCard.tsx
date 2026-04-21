@@ -36,6 +36,10 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
   const dueState = getDueDateState(task.dueDate);
   const mode = useThemeStore((state) => state.mode);
   const isLight = mode === "light";
+  const priorityClass =
+    isLight && task.priority === "low"
+      ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+      : priorityColorClass[task.priority];
 
   return (
     <motion.div
@@ -57,7 +61,7 @@ export function TaskCard({ task, onEdit, onOpenNotes, onRequestConfirmation }: T
     >
         <div className="flex items-start justify-between gap-2">
           <h4 className={`text-sm font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>{task.title}</h4>
-          <span className={`rounded-full border px-2 py-0.5 text-[10px] ${priorityColorClass[task.priority]}`}>
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityClass}`}>
             {task.priority}
           </span>
         </div>

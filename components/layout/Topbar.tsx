@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNotificationStore } from "@/lib/store/useNotificationStore";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { useThemeStore } from "@/lib/store/useThemeStore";
 import { Avatar } from "@/components/ui/Avatar";
 import { ThemeToggle } from "@/components/settings/ThemeToggle";
 
@@ -30,11 +31,13 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const clearAll = useNotificationStore((state) => state.clearAll);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const mode = useThemeStore((state) => state.mode);
   const [open, setOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const profileRef = useRef<HTMLDivElement | null>(null);
   const dropdownTransition = { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const };
+  const isLight = mode === "light";
 
   const title = pathname?.startsWith("/tasks/") ? "Tasks" : titles[pathname] ?? "Activity Tracker AI";
 
@@ -211,7 +214,11 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
                 transition={dropdownTransition}
                 style={{ transformOrigin: "top right" }}
-                className="absolute right-0 mt-2 w-44 rounded-xl border border-white/20 bg-slate-900/95 p-2 text-sm text-white shadow-xl"
+                className={`absolute right-0 mt-2 w-44 rounded-xl border p-2 text-sm shadow-xl backdrop-blur-xl ${
+                  isLight
+                    ? "border-slate-300 bg-white/95 text-slate-800 shadow-[0_16px_40px_rgba(15,23,42,0.22)]"
+                    : "border-white/20 bg-slate-900/95 text-white"
+                }`}
               >
               <button
                 type="button"
@@ -219,7 +226,9 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                   setOpen(false);
                   router.push("/profile");
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-white/10"
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition ${
+                  isLight ? "hover:bg-slate-100" : "hover:bg-white/10"
+                }`}
               >
                 <User className="size-4" /> Profile
               </button>
@@ -229,18 +238,22 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                   setOpen(false);
                   router.push("/settings");
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-white/10"
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition ${
+                  isLight ? "hover:bg-slate-100" : "hover:bg-white/10"
+                }`}
               >
                 <Settings className="size-4" /> Settings
               </button>
-              <div className="my-1 h-px bg-white/10" />
+              <div className={`my-1 h-px ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
               <button
                 type="button"
                 onClick={() => {
                   logout();
                   router.push("/login");
                 }}
-                className="w-full rounded-lg px-2 py-1.5 text-left text-red-300 hover:bg-red-500/15"
+                className={`w-full rounded-lg px-2 py-1.5 text-left transition ${
+                  isLight ? "text-red-600 hover:bg-red-50" : "text-red-300 hover:bg-red-500/15"
+                }`}
               >
                 Logout
               </button>

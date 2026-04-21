@@ -103,7 +103,7 @@ export default function TasksPage() {
       <section className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
         <p className="text-xs uppercase tracking-[0.35em] text-blue-300">Task Studio</p>
         <h2 className="font-display mt-2 text-2xl font-semibold text-white md:text-3xl">
-          Organize, move, and complete work with a polished kanban flow.
+          Plan clearly, track progress, and complete tasks with confidence.
         </h2>
       </section>
 
