@@ -74,23 +74,23 @@ export async function POST(request: Request) {
         [email, body.taskId, cleanNote, JSON.stringify(attachments)],
       );
     });
+
+    return NextResponse.json({ ok: true, storage: "postgres" });
   } catch (error) {
-    if (!isDatabaseUnavailableError(error)) {
-      const message = error instanceof Error ? error.message : "Task notes save failed.";
+    try {
+      await upsertTaskNotesViaRest({
+        email,
+        taskId: body.taskId,
+        note: cleanNote,
+        attachments,
+      });
+
+      return NextResponse.json({ ok: true, storage: "supabase" });
+    } catch (restError) {
+      const message = restError instanceof Error ? restError.message : error instanceof Error ? error.message : "Task notes save failed.";
       return NextResponse.json({ error: message }, { status: 500 });
     }
-
-    await upsertTaskNotesViaRest({
-      email,
-      taskId: body.taskId,
-      note: cleanNote,
-      attachments,
-    });
-
-    return NextResponse.json({ ok: true, storage: "supabase" });
   }
-
-  return NextResponse.json({ ok: true, storage: "postgres" });
 }
 
 export async function DELETE(request: Request) {
@@ -111,11 +111,7 @@ export async function DELETE(request: Request) {
     return attachments
       .map((item: { storagePath?: unknown }) => (typeof item.storagePath === "string" ? item.storagePath : ""))
       .filter((path: string) => !!path);
-  }).catch(async (error) => {
-    if (!isDatabaseUnavailableError(error)) {
-      throw error;
-    }
-
+  }).catch(async () => {
     const payload = await fetchTaskNotesViaRest(email);
     return (payload.attachmentsByTaskId[body.taskId] ?? [])
       .map((item) => item.storagePath)
@@ -138,14 +134,10 @@ export async function DELETE(request: Request) {
         [email, body.taskId],
       );
     });
-  } catch (error) {
-    if (!isDatabaseUnavailableError(error)) {
-      const message = error instanceof Error ? error.message : "Task notes delete failed.";
-      return NextResponse.json({ error: message }, { status: 500 });
-    }
 
+    return NextResponse.json({ ok: true });
+  } catch {
     await deleteTaskNotesViaRest(email, body.taskId);
+    return NextResponse.json({ ok: true });
   }
-
-  return NextResponse.json({ ok: true });
 }
